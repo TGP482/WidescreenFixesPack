@@ -1,18 +1,22 @@
 trigger:
+  batch: true
   branches:
     include:
     - '*'
   paths:
     exclude:
-    - .appveyor.yml
+    - '**/*.md'
+    - '**/*.txt'
 
 pr:
+  autoCancel: true
   branches:
     include:
     - '*'
   paths:
     exclude:
-    - .appveyor.yml
+    - '**/*.md'
+    - '**/*.txt'
 
 jobs:
 - job: Build
@@ -22,24 +26,79 @@ jobs:
   pool:
     vmImage: windows-2025-vs2026
 
-  strategy:
-    matrix:
-      Release:
-        configuration: Release
-      Debug:
-        configuration: Debug
-
   steps:
+  - checkout: self
+    submodules: recursive
+
+  - task: CmdLine@2
+    displayName: Configure build
+    inputs:
+      script: |
+        premake5.bat
+
   - task: CmdLine@2
     displayName: Before build
     inputs:
       script: |
-        git submodule update --init --recursive
-        premake5.exe vs2026
-        ./before_build.bat
+        before_build.bat
 
   - task: MSBuild@1
-    displayName: Build
+    displayName: Build Win32
     inputs:
-      solution: 'build/*.slnx'
+      solution: 'build/Win32.WidescreenFixesPack.slnx'
+      configuration: Release
       maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build Win64
+    inputs:
+      solution: 'build/Win64.WidescreenFixesPack.slnx'
+      configuration: Release
+      maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build PCSX2F
+    inputs:
+      solution: 'build/PCSX2F.WidescreenFixesPack.slnx'
+      configuration: Release
+      maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build PPSSPP
+    inputs:
+      solution: 'build/PPSSPP.WidescreenFixesPack.slnx'
+      configuration: Release
+      maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build Dolphin
+    inputs:
+      solution: 'build/Dolphin.WidescreenFixesPack.slnx'
+      configuration: Release
+      maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build CXBXR
+    inputs:
+      solution: 'build/CXBXR.WidescreenFixesPack.slnx'
+      configuration: Release
+      maximumCpuCount: true
+
+  - task: CmdLine@2
+    displayName: Before package
+    inputs:
+      script: |
+        before_packaging.bat
+
+  - task: CmdLine@2
+    displayName: Pack binaries
+    inputs:
+      script: |
+        cd data
+        release.bat
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish archives
+    inputs:
+      targetPath: 'data/Archives'
+      artifact: 'Archives'
